@@ -58,6 +58,8 @@ class ScanResult:
 
     @property
     def speed(self) -> float:
+        """File/detik. Windows bisa melaporkan elapsed 0 pada pemindaian kecil
+        (resolusi timer ~15ms), jadi gunakan perf_counter di scan()."""
         return self.file_count / self.elapsed if self.elapsed > 0 else 0.0
 
 
@@ -120,7 +122,7 @@ def _excluded(name: str, patterns, hide: bool) -> bool:
 
 
 def scan(root: Path, limit: int = 15, **kwargs) -> ScanResult:
-    start = time.monotonic()
+    start = time.perf_counter()
     result = ScanResult(root=str(Path(root).resolve()))
     directories: dict[str, int] = defaultdict(int)
     extensions: dict[str, int] = defaultdict(int)
@@ -143,7 +145,9 @@ def scan(root: Path, limit: int = 15, **kwargs) -> ScanResult:
     result.extensions = dict(sorted(extensions.items(), key=lambda kv: kv[1], reverse=True))
     result.kinds = dict(sorted(kinds.items(), key=lambda kv: kv[1], reverse=True))
     result.largest = largest[: max(0, limit)]
-    result.elapsed = time.monotonic() - start
+    # perf_counter: resolusi tinggi. monotonic di Windows bisa menghasilkan
+    # 0.0 untuk pemindaian kecil sehingga speed jadi 0 tanpa alasan.
+    result.elapsed = max(time.perf_counter() - start, 1e-9)
     return result
 
 
