@@ -1,0 +1,22 @@
+name: Feature request
+description: Usulkan fitur baru
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah yang ingin diselesaikan
+      description: Jelaskan kebutuhan, bukan hanya solusinya.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Usulan solusi
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Keamanan
+      options:
+        - label: Fitur ini tidak menghapus file secara otomatis
+          required: true

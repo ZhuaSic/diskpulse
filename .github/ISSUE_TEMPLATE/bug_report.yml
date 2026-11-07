@@ -1,0 +1,36 @@
+name: Bug report
+description: Laporkan perilaku yang salah
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Terima kasih sudah melaporkan! Jangan sertakan data pribadi atau path sensitif.
+  - type: input
+    id: version
+    attributes:
+      label: Versi DiskPulse
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Versi Python dan OS
+      placeholder: Python 3.12 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah reproduksi
+      placeholder: |
+        1. jalankan `python -m diskpulse scan .`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Perilaku yang diharapkan
+    validations:
+      required: true
