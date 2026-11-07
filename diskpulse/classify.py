@@ -56,17 +56,14 @@ _DIR_RULES = {
     ".next": (BUILD, "next build"),
     ".nuxt": (BUILD, "nuxt build"),
     "dist": (BUILD, "npm run build"),
-    "out": (BUILD, "npm run build"),
     ".output": (BUILD, "nuxt build"),
     "storybook-static": (BUILD, "build-storybook"),
-    "coverage": (BUILD, "jalankan test dengan coverage"),
     "htmlcov": (BUILD, "coverage run"),
     ".angular": (CACHE, "ng build"),
     ".dart_tool": (CACHE, "flutter pub get"),
     ".expo": (CACHE, "expo start"),
     ".serverless": (BUILD, "serverless package"),
     "_site": (BUILD, "jekyll build"),
-    "site": (BUILD, "mkdocs build"),
     ".svelte-kit": (BUILD, "svelte-kit sync"),
     ".turbo": (CACHE, "turbo build"),
     ".parcel-cache": (CACHE, "parcel build"),
@@ -83,12 +80,10 @@ _DIR_RULES = {
     ".hypothesis": (CACHE, "pytest"),
     # Rust / Go / JVM / .NET / mobile
     "target": (BUILD, "cargo build"),
-    "pkg": (BUILD, "wasm-pack build"),
     ".gradle": (CACHE, "gradle build"),
     ".m2": (CACHE, "maven"),
     "DerivedData": (BUILD, "xcodebuild"),
     "Pods": (DEPS, "pod install"),
-    "obj": (BUILD, "dotnet build"),
     ".terraform": (CACHE, "terraform init"),
     # metadata VCS — BUKAN cache, jangan dihapus
     ".git": (VCS, "jangan dihapus"),
@@ -96,8 +91,24 @@ _DIR_RULES = {
     ".svn": (VCS, "jangan dihapus"),
     # log
     "logs": (LOG, "rotasi/hapus"),
-    "log": (LOG, "rotasi/hapus"),
     "crashdumps": (LOG, "hapus"),
+}
+
+#: Nama direktori yang TERLALU GENERIK untuk dipercaya sendirian.
+#:
+#: `pkg`, `out`, `bin`, `obj` bisa berarti artefak build — tapi juga bisa
+#: berarti folder data biasa. Aturan lemah hanya dipakai kalau tidak ada
+#: aturan kuat sama sekali di seluruh path, dan tidak pernah mengalahkan
+#: aturan kuat yang lebih dangkal. Contoh nyata yang memaksa pemisahan ini:
+#: `node_modules/pkg/index.js` harus tetap `deps`, bukan build.
+_WEAK_DIR_RULES = {
+    "pkg": (BUILD, "wasm-pack build"),
+    "out": (BUILD, "build ulang proyek"),
+    "bin": (BUILD, "build ulang proyek"),
+    "obj": (BUILD, "kompilasi ulang"),
+    "site": (BUILD, "mkdocs/jekyll build"),
+    "log": (LOG, "rotasi/hapus"),
+    "coverage": (BUILD, "jalankan test dengan coverage"),
 }
 
 # ekstensi -> (kategori, cara regenerasi)
@@ -132,8 +143,17 @@ def classify(rel: Path) -> tuple[str, str]:
     dikenali sebagai metadata VCS, bukan dependensi.
     """
     rel = Path(rel)
-    for part in reversed([p.lower() for p in rel.parts[:-1]]):
+    parts = [p.lower() for p in rel.parts[:-1]]
+
+    # Aturan kuat: terdalam menang.
+    for part in reversed(parts):
         rule = _DIR_RULES.get(part)
+        if rule:
+            return rule
+
+    # Aturan lemah: hanya kalau tidak ada aturan kuat sama sekali.
+    for part in reversed(parts):
+        rule = _WEAK_DIR_RULES.get(part)
         if rule:
             return rule
 

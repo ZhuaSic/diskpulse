@@ -35,27 +35,51 @@ jobs:
           python -m diskpulse diff .
           python -m diskpulse diff . --compare
 
+      # Lintas-OS sengaja pakai Python, bukan shell: `mkdir -p` dan /dev/zero
+      # tidak ada di Windows, dan `shell: bash` di runner Windows tetap
+      # menghasilkan path yang berbeda dari runner Unix.
+      - name: Verifikasi klasifikasi pada struktur nyata
+        run: |
+          python -c "
+          import json, subprocess, sys, tempfile
+          from pathlib import Path
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = Path(tmp)
+              (root / 'node_modules' / 'pkg').mkdir(parents=True)
+              (root / 'dist').mkdir()
+              (root / '.git' / 'objects').mkdir(parents=True)
+              (root / 'docs').mkdir()
+              (root / 'node_modules' / 'pkg' / 'index.js').write_bytes(b'x' * 20000)
+              (root / 'dist' / 'bundle.js').write_bytes(b'y' * 8000)
+              (root / '.git' / 'objects' / 'pack').write_bytes(b'z' * 4000)
+              (root / 'docs' / 'laporan.pdf').write_bytes(b'w' * 2000)
+
+              out = subprocess.run([sys.executable, '-m', 'diskpulse', 'scan', str(root), '--json'],
+                                   capture_output=True, text=True, check=True).stdout
+              d = json.loads(out)
+              kinds = d['kinds']
+              assert d['file_count'] == 4, d['file_count']
+              assert kinds.get('deps') == 20000, kinds
+              assert kinds.get('build') == 8000, kinds
+              assert kinds.get('vcs') == 4000, kinds
+              assert kinds.get('unique') == 2000, kinds
+              print('klasifikasi OK:', kinds)
+
+              h = json.loads(subprocess.run([sys.executable, '-m', 'diskpulse', 'health', str(root), '--json'],
+                                            capture_output=True, text=True, check=True).stdout)
+              assert h['reclaimable_bytes'] == 28000, h['reclaimable_bytes']
+              assert 0 <= h['score'] <= 100, h['score']
+              print('health OK:', h['score'], h['grade'])
+          "
+
       - name: JSON valid untuk semua subcommand
         run: |
-          python -c "import json,subprocess,sys
-          cmds = [['scan'],['health'],['duplicates','--min-size','0'],['clean-plan','--days','0']]
-          for c in cmds:
-              out = subprocess.run([sys.executable,'-m','diskpulse',*c,'.','--json'],
+          python -c "
+          import json, subprocess, sys
+          for c in (['scan'], ['health'], ['duplicates', '--min-size', '0'], ['clean-plan', '--days', '0']):
+              out = subprocess.run([sys.executable, '-m', 'diskpulse', *c, '.', '--json'],
                                    capture_output=True, text=True, check=True).stdout
               json.loads(out)
-              print('OK', c[0])"
-
-      - name: Klasifikasi deteksi node_modules
-        shell: bash
-        run: |
-          mkdir -p /tmp/dp-test/node_modules/pkg
-          head -c 20000 /dev/zero > /tmp/dp-test/node_modules/pkg/index.js
-          echo hi > /tmp/dp-test/readme.txt
-          python -m diskpulse scan /tmp/dp-test --json > /tmp/dp.json
-          python -c "
-          import json
-          d = json.load(open('/tmp/dp.json'))
-          assert d['kinds'].get('deps', 0) > 0, d['kinds']
-          assert d['file_count'] == 2, d['file_count']
-          print('klasifikasi OK:', d['kinds'])
+              print('JSON OK', c[0])
           "

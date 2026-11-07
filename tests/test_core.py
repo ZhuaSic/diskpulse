@@ -75,6 +75,18 @@ class ClassifyTest(unittest.TestCase):
         # .git di dalam node_modules harus tetap metadata VCS
         self.assertEqual(classify(Path("x/node_modules/y/.git/config"))[0], VCS)
 
+    def test_aturan_lemah_tidak_mengalahkan_aturan_kuat(self):
+        """Regresi: `pkg` generik sempat menang atas `node_modules`.
+
+        `node_modules/pkg/index.js` harus tetap deps walau `pkg` lebih dalam.
+        """
+        self.assertEqual(classify(Path("node_modules/pkg/index.js"))[0], DEPS)
+        self.assertEqual(classify(Path("a/node_modules/b/pkg/c.js"))[0], DEPS)
+
+    def test_aturan_lemah_tetap_dipakai_sendirian(self):
+        self.assertEqual(classify(Path("proyek/pkg/bundle.wasm"))[0], BUILD)
+        self.assertEqual(classify(Path("data/bin/tool.exe"))[0], BUILD)
+
     def test_saran_regenerasi_spesifik(self):
         self.assertIn("npm install", classify(Path("a/node_modules/b"))[1])
         self.assertIn("cargo", classify(Path("a/target/b"))[1])
