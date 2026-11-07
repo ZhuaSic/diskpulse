@@ -5,6 +5,31 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/) dan
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-07
+
+### Fixed
+
+- **Klasifikasi salah pada nama direktori generik.** `node_modules/pkg/index.js`
+  dilaporkan sebagai `build` hanya karena `pkg` lebih dalam dari
+  `node_modules`. Nama yang ambigu (`pkg`, `out`, `bin`, `obj`, `site`, `log`,
+  `coverage`) sekarang ada di tabel *aturan lemah* yang hanya dipakai kalau
+  tidak ada aturan kuat sama sekali di path tersebut — jadi aturan kuat kini
+  selalu menang tanpa memandang kedalaman.
+- **`elapsed` bisa 0.0 di Windows.** `time.monotonic()` beresolusi kasar di
+  Windows; pemindaian beberapa file bisa selesai dalam < 1 tick sehingga
+  `speed` dilaporkan `0.0 file/detik`. Beralih ke `time.perf_counter()` dengan
+  clamp `1e-9`.
+- **CI gagal di Ubuntu karena Python 3.9.** Runner `ubuntu-latest` sudah
+  Ubuntu 26.04 yang tidak menyediakan binary Python 3.9. Matrix dipin ke
+  `ubuntu-24.04`.
+- Langkah verifikasi CI tidak lagi bergantung pada `mkdir -p`/`/dev/zero`,
+  yang tidak ada di runner Windows.
+
+### Changed
+
+- Job CI kini juga memverifikasi klasifikasi dan skor `health` pada struktur
+  direktori nyata (`node_modules/pkg`, `dist`, `.git`, `docs`) di ketiga OS.
+
 ## [0.2.0] - 2026-11-07
 
 Rilis ini mengubah DiskPulse dari "penghitung ukuran" menjadi "penilai ruang".
