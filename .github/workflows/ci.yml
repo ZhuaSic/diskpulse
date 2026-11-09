@@ -1,22 +1,37 @@
 name: CI
 
+# Batalkan run lama saat commit baru masuk: hemat kuota & tidak ada dua
+# matriks 15 job berjalan bersamaan untuk kode yang sama.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        # ubuntu-24.04 dipin: ubuntu-latest (26.04) tidak menyediakan
-        # binary Python 3.9, sementara 3.9 masih versi minimum yang didukung.
+        # `ubuntu-latest` sudah Ubuntu 26.04, dan actions/python-versions
+        # HANYA menyediakan binary linux untuk 22.04 & 24.04 (termasuk 3.9).
+        # Karena itu runner di-pin eksplisit. JANGAN dikembalikan ke
+        # `ubuntu-latest` selama 3.9 masih didukung:
+        #   Error: The version '3.9' ... was not found for Ubuntu 26.04.
         os: [ubuntu-24.04, windows-latest, macos-latest]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -27,19 +42,20 @@ jobs:
       - name: Test
         run: python -m unittest discover -s tests -v
 
+      # Semua langkah berikut ditulis dalam Python, bukan shell:
+      # `mkdir -p`, /dev/zero, dan path /tmp tidak ada di runner Windows.
+      # Path selalu dibuat lewat pathlib/tempfile agar sama di ketiga OS.
       - name: Smoke - semua subcommand
         run: |
-          python -m diskpulse scan . --limit 5
+          python -m diskpulse scan .
           python -m diskpulse health .
           python -m diskpulse duplicates . --min-size 1K
           python -m diskpulse clean-plan . --days 0
           python -m diskpulse watch . --interval 0.05 --cycles 1
           python -m diskpulse diff .
           python -m diskpulse diff . --compare
+          python -m diskpulse --version
 
-      # Lintas-OS sengaja pakai Python, bukan shell: `mkdir -p` dan /dev/zero
-      # tidak ada di Windows, dan `shell: bash` di runner Windows tetap
-      # menghasilkan path yang berbeda dari runner Unix.
       - name: Verifikasi klasifikasi pada struktur nyata
         run: |
           python -c "
